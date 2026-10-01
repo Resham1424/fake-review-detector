@@ -1,0 +1,28 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Large Model Weights (> 100MB exceeds GitHub standard limit)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# IDE / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
