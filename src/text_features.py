@@ -39,7 +39,7 @@ def build_tfidf_vectorizer(
 
 def extract_linguistic_features(df: pd.DataFrame, text_col: str = "text") -> pd.DataFrame:
     """
-    Extract complementary stylistic/linguistic features from review text before/after cleaning.
+    Extract complementary stylistic/linguistic features from review text.
     Features:
       - char_count: Total raw character length
       - word_count: Total token count
@@ -47,7 +47,7 @@ def extract_linguistic_features(df: pd.DataFrame, text_col: str = "text") -> pd.
       - exclamation_count: Raw count of exclamation marks (!)
       - question_count: Raw count of question marks (?)
       - uppercase_ratio: Proportion of uppercase characters (indicates shouting/hyperbole)
-      - digit_ratio: Proportion of digit characters (often mentions specs/prices)
+      - digit_ratio: Proportion of digit characters
       - lexical_diversity: Ratio of unique words to total words
     """
     if text_col not in df.columns:
@@ -88,5 +88,4 @@ def load_vectorizer(filepath: str = "models/tfidf_vectorizer.joblib") -> TfidfVe
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Vectorizer file not found at '{filepath}'")
     vectorizer = joblib.load(filepath)
-    logger.info(f"Loaded TF-IDF vectorizer from '{filepath}'")
     return vectorizer

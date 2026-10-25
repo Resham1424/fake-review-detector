@@ -1,5 +1,4 @@
 """
-VerityCheck: Dual-Signal Authenticity Scoring for Online Reviews
+VerityCheck - Dual-Signal Authenticity Scoring for Online Reviews
 """
-
-__version__ = "0.1.0"
+__version__ = "1.0.0"

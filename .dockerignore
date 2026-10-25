@@ -1,0 +1,14 @@
+data/raw/
+node_modules/
+dist/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.local
+.DS_Store
+tests/__pycache__/
+api/__pycache__/
+src/__pycache__/

@@ -1,154 +1,148 @@
 # VerityCheck — Dual-Signal Authenticity Scoring for Online Reviews
 
-A production-grade, hybrid fake product review detection system that combines **text-based NLP features** with **behavioral/metadata analytics**, fused through an ensemble stacking model and made transparent via **SHAP / feature attribution explainability**.
+A production-grade, hybrid fake product review detection system combining **text NLP & transformer embeddings** with **behavioral metadata analytics**, fused through a **leakage-free ensemble stacking meta-classifier** and made transparent via **SHAP feature attribution**.
 
 ---
 
-## Project Structure
+## Project Architecture & Directory Layout
 
 ```
-Fake_product_review_detector/
+fake-review-detector/
+├── api/                       # Phase 6: FastAPI microservice
+│   ├── __init__.py
+│   ├── main.py                # App entrypoint, lifespan model caching, CORS
+│   ├── routes.py              # /analyze, /batch-analyze, /reviewer/{id}, /health
+│   └── schemas.py             # Pydantic request/response schemas
+├── src/                       # Core ML & Inference Pipeline
+│   ├── __init__.py
+│   ├── preprocess.py          # Phase 1: Ingestion, normalization, synthetic fallback
+│   ├── text_features.py       # Phase 1: Sublinear TF-IDF & linguistic feature extractors
+│   ├── behavioral_features.py # Phase 2: Metadata signals & cold-start indicators
+│   ├── train_baseline.py      # Phase 1: TF-IDF + Logistic Regression benchmark
+│   ├── train_behavioral.py    # Phase 2: Behavioral Gradient Boosting classifier
+│   ├── train_transformer.py   # Phase 3: Contextual DistilBERT transformer
+│   ├── train_ensemble.py      # Phase 4: Leakage-free 5-fold stacking meta-model
+│   └── explain.py             # Phase 5: SHAP attribution & human-readable engine
 ├── data/
-│   ├── raw/                # Original downloaded or generated datasets (untouched)
-│   └── processed/          # Cleaned, normalized, and train/test split data
-│       ├── reviews_clean.csv # Full cleaned dataset
-│       ├── train.csv         # Stratified training split
-│       └── test.csv          # Stratified evaluation split
-├── src/
-│   ├── __init__.py         # Package initialization
-│   ├── preprocess.py       # Data ingestion, text cleaning, schema validation, synthetic fallback
-│   ├── text_features.py    # TF-IDF vectorization & linguistic feature extraction
-│   ├── behavioral_features.py  # Reviewer & product metadata features (Phase 2)
-│   ├── train_baseline.py   # Phase 1: TF-IDF + Logistic Regression baseline benchmark
-│   ├── train_behavioral.py # Phase 2: Behavioral gradient boosting classifier
-│   ├── train_transformer.py # Phase 3: Fine-tuned DistilBERT transformer classifier
-│   ├── train_ensemble.py   # Phase 4: Stacking classifier (text + metadata fusion)
-│   └── explain.py          # Phase 5: SHAP / token attribution explainability
-├── models/                 # Saved model artifacts, tokenizers, and benchmark metrics (.json)
-│   ├── baseline_logreg.joblib
-│   ├── tfidf_vectorizer.joblib
-│   ├── baseline_metrics.json
-│   ├── distilbert_finetuned/  # Saved DistilBERT weights & tokenizer
-│   └── transformer_metrics.json
-├── notebooks/              # Exploration & evaluation notebooks
-├── tests/                  # Unit tests (preprocess, text features, baseline, transformer)
-├── requirements.txt
-└── README.md
+│   ├── raw/                   # Raw source reviews
+│   ├── processed/             # Cleaned train/test stratified CSVs
+│   └── adversarial/           # Phase 8: Hand-curated adversarial test set
+├── models/                    # Serialized model artifacts, vectorizers, and metrics
+├── tests/                     # Automated unit and integration test suite
+│   ├── test_explain.py        # SHAP & human-readable explanation tests
+│   ├── test_api.py            # FastAPI TestClient endpoint tests
+│   └── test_adversarial.py    # Phase 8 adversarial robustness test suite
+├── docs/                      # Technical reports & audit summaries
+│   ├── adversarial_report.md
+│   └── final_report_summary.md
+├── Dockerfile.api             # Multi-stage Python backend container
+├── Dockerfile.frontend        # Multi-stage React/Nginx frontend container
+├── docker-compose.yml         # Container orchestration configuration
+├── requirements.txt           # Pinned Python dependencies
+└── package.json               # Node.js 22 runtime dependencies (Phase 7 frontend)
 ```
 
 ---
 
-## Phase 1 Scope: Text Baseline Benchmark
+## Phases Overview (1 through 9)
 
-- **Dataset Ingestion**: Reads CSV datasets with standard review schema (`text`, `rating`, `verified_purchase`, `reviewer_id`, `product_id`, `timestamp`, `label`).
-- **Synthetic Fallback**: If no raw file is placed in `data/raw/reviews.csv`, `src/preprocess.py` generates a realistic synthetic dataset (~1,200 samples with distinct deceptive vs genuine cues) so the pipeline runs immediately end-to-end.
-- **Text Normalization**: Strips HTML/URLs, expands contractions, cleans punctuation, handles missing values, and normalizes whitespace.
-- **Feature Extraction**: Sublinear TF-IDF vectorization (unigrams + bigrams) with English stopword filtering.
-- **Baseline Model**: Stratified Logistic Regression classifier with balanced class weighting.
-- **Benchmark Metrics**: Accuracy, Precision, Recall, F1-Score, and ROC-AUC.
+### Phase 1: Text NLP Baseline Benchmark
+- **Features**: Sublinear TF-IDF vectorization (unigrams + bigrams, 5000 max features) and stylistic feature extraction (capitalization, exclamation bursts, lexical diversity).
+- **Model**: Stratified balanced Logistic Regression.
+- **Artifacts**: `models/baseline_logreg.joblib`, `models/tfidf_vectorizer.joblib`.
 
----
+### Phase 2: Behavioral & Metadata Analytics
+- **Features**: Reviewer velocity, historic average ratings, rating polar deviations from product averages, verified purchase badges, and cold-start indicators (`is_new_reviewer`, `is_new_product`).
+- **Model**: HistGradientBoostingClassifier.
+- **Artifacts**: `models/behavioral_model.joblib`, `models/behavioral_metadata.joblib`.
 
-## Phase 2 Scope: Behavioral & Metadata Feature Engineering
+### Phase 3: Contextual Transformer (DistilBERT)
+- **Architecture**: HuggingFace `distilbert-base-uncased` fine-tuned for sequence classification.
+- **Artifacts**: `models/distilbert_finetuned/`, `models/transformer_metrics.json`.
 
-- **Reviewer Activity Metrics**: Review velocity, burst submission patterns, and verified purchase ratios.
-- **Product Metadata Cues**: Rating polarization, product review concentration, and timestamp anomaly indicators.
-- **Behavioral Model**: Gradient boosting classifier (XGBoost / HistGradientBoosting) trained purely on non-text features.
-- **Benchmark Metrics**: Accuracy, Precision, Recall, F1-Score, and ROC-AUC.
+### Phase 4: Dual-Signal Stacking Ensemble
+- **Fix 1 (Leakage-Free Validation)**: Meta-classifier trained via 5-fold Out-Of-Fold (OOF) cross-validation to guarantee zero in-sample leakage.
+- **Prompt A (Cold-Start Confidence Weighting)**: Dynamic confidence weighting preventing uninformative behavioral defaults from pulling obvious text spam toward "genuine".
+- **Unified Entry Point**: `src.train_ensemble.get_trust_score(review_dict) -> float` (0.0 to 100.0).
 
----
+### Phase 5: SHAP & Full Ensemble Explainability
+- **Explainers**: Linear SHAP for the text baseline, Tree SHAP for the behavioral model, and Meta SHAP for stacking feature contributions.
+- **Unified Engine**: `src.explain.explain_review(review_dict) -> dict` returns ranked top 5 factors with impact scores and directional flags (`increases_suspicion` vs `decreases_suspicion`).
+- **Human-Readable Generator**: `to_human_readable(explanation) -> str` synthesizes natural English explanations with no raw variables or floats leaking into sentences.
 
-## Phase 3 Scope: Deep Contextual Transformer (DistilBERT)
+### Phase 6: FastAPI Backend API
+Microservice running via Uvicorn with Pydantic validation:
+- `POST /analyze`: Single review analysis returning trust score, label, top factors, and human explanation.
+- `POST /batch-analyze`: Bulk triage accepting JSON list or CSV file upload.
+- `GET /reviewer/{reviewer_id}`: Reviewer aggregate behavioral history and cold-start detection.
+- `GET /health`: Liveness probe.
 
-- **Architecture**: HuggingFace `distilbert-base-uncased` fine-tuned for binary sequence classification (`0` = genuine, `1` = fake/deceptive).
-- **Data Ingestion**: Ingests normalized review text from `data/processed/reviews_clean.csv` (or `train.csv`) with stratified train/validation splitting.
-- **Adaptive Compute Execution**: Automatically detects CUDA GPUs. If running on CPU, gracefully adapts with optimized defaults (`max_length=64`, `batch_size=16`, `epochs=2`) and a clear user notification.
-- **Inference Utility**: Exports reusable `predict_proba(texts: list[str]) -> list[float]` function for downstream ensemble stacking and API endpoints.
-- **Comparative Benchmarking**: Compares Phase 1 (TF-IDF + Logistic Regression) vs Phase 3 (DistilBERT) side-by-side across Accuracy, Precision, Recall, F1, and ROC-AUC.
+### Phase 7: Interactive Web Frontend
+Built with React, Vite, and Tailwind CSS:
+- **Consumer View**: Review text input, 0-100 Trust Score gauge, color-coded verdict, plain-English explanation, and factor impact horizontal bar chart.
+- **Moderator Dashboard**: Sortable review queue by trust score with status toggles.
+- **Reviewer Profile View**: Stat-card grid displaying account verification ratios, review frequency, and anomaly indicators.
+- **Adversarial Test Lab & Benchmarks Hub**: Empirical performance and confusion matrix visualizations.
 
----
+### Phase 8: Adversarial Robustness Testing
+Evaluation against 3 distinct threat vectors in `data/adversarial/adversarial_samples.csv`:
+1. *Well-written fakes* (astroturfed reviews with technical jargon).
+2. *Genuine reviews with unusual patterns* (harsh phrasing paired with 5★).
+3. *Paraphrase attacks* (reworded synonym variants of known spam templates).
+Detailed failure case studies documented in `docs/adversarial_report.md`.
 
-## Installation & Setup
-
-### 1. Create and activate a virtual environment (optional but recommended)
-
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# Linux / macOS
-python -m venv venv
-source venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
+### Phase 9: Containerization & Cloud Deployment
+- Multi-stage Docker containers for API and frontend.
+- `docker-compose.yml` for unified local execution.
+- GitHub Actions CI workflow in `.github/workflows/ci.yml`.
 
 ---
 
 ## Quickstart & Usage
 
-### 1. Preprocess Data
-Clean raw reviews and create `reviews_clean.csv`, `train.csv`, and `test.csv` in `data/processed/`:
+### 1. Run via Docker Compose (Recommended)
 ```bash
-python src/preprocess.py
+docker compose up --build
+```
+- Frontend: `http://localhost:3000`
+- API docs: `http://localhost:8000/docs`
+
+### 2. Run Locally (Python API)
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run FastAPI backend
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Optional flags:
-- `--samples 1500`: Generate a specific number of synthetic samples if raw data is missing.
-- `--generate-synthetic`: Force regeneration of synthetic data even if a raw file exists.
-
-### 2. Train & Evaluate Phase 1 Baseline
-Train the TF-IDF + Logistic Regression model, compute benchmark metrics, and save artifacts to `models/`:
+### 3. Run Locally (React Frontend)
 ```bash
-python src/train_baseline.py
+npm install
+npm run dev
 ```
 
-### 3. Train Phase 2 Behavioral Classifier
-Train the behavioral gradient boosting model on reviewer and product metadata:
+### 4. CLI Explainability Diagnosis
 ```bash
-python src/train_behavioral.py
+python src/explain.py --text "AMAZING PRODUCT! BEST PURCHASE OF MY LIFE 5 STARS MUST BUY NOW!"
 ```
 
-### 4. Fine-Tune Phase 3 DistilBERT Classifier
-Fine-tune DistilBERT, evaluate metrics, compare against the Phase 1 benchmark, and save model artifacts to `models/distilbert_finetuned/`:
+### 5. Run Test Suite
 ```bash
-python src/train_transformer.py
-```
-
-Optional flags:
-- `--epochs 3`: Customize fine-tuning epochs.
-- `--max-samples 500`: Subsample dataset for rapid verification.
-- `--batch-size 32`: Adjust batch size.
-
-### 5. Train Phase 4 Dual-Signal Ensemble
-Train the stacking meta-classifier combining text probabilities and behavioral features:
-```bash
-python src/train_ensemble.py
-```
-
-### 6. Run Explainability Diagnostic
-Inspect token-level influence on any arbitrary review text:
-```bash
-python src/explain.py --text "BEST PRODUCT EVER! 5 STARS A+++++ MUST BUY NOW!"
-```
-
-### 7. Run Unit Tests
-Execute the automated test suite with pytest:
-```bash
-python -m pytest -v tests/
+pytest -v tests/
 ```
 
 ---
 
-## Roadmap
+## Cloud Deployment Guides
 
-- [x] **Phase 1**: TF-IDF + Logistic Regression baseline classifier & benchmark metrics
-- [x] **Phase 2**: Behavioral & metadata feature engineering module (`src/behavioral_features.py`)
-- [x] **Phase 3**: Deep contextual text embeddings (Fine-tuned DistilBERT — `src/train_transformer.py`)
-- [x] **Phase 4**: Dual-signal stacking ensemble fusing text + metadata (`src/train_ensemble.py`)
-- [x] **Phase 5**: SHAP explainability & feature attribution interface (`src/explain.py`)
+### Deploy to Render
+1. Create a **Web Service** pointing to this repository.
+2. Select **Docker** environment and set DockerfilePath to `Dockerfile.api`.
+3. Add environment variable `PORT=8000`.
+
+### Deploy to Railway
+1. Click **New Project** → **Deploy from GitHub repo**.
+2. Railway detects `Dockerfile.api` and `Dockerfile.frontend` via Docker Compose or standalone services.
+3. Expose port `8000` for API and port `3000` for frontend.

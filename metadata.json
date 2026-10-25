@@ -1,0 +1,8 @@
+{
+  "name": "VerityCheck - Fake Review Detector",
+  "description": "Production-grade dual-signal authenticity scoring for online reviews combining NLP text attribution with behavioral metadata analysis and benchmark metrics.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

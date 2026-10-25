@@ -1,0 +1,29 @@
+# Multi-stage Dockerfile for VerityCheck FastAPI backend (Phase 9)
+FROM python:3.10-slim AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && pip install --no-cache-dir --user -r requirements.txt \
+    && apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM python:3.10-slim AS runner
+
+WORKDIR /app
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+ENV MODELS_DIR=/app/models
+
+# Copy source, API layer, and models
+COPY src/ /app/src/
+COPY api/ /app/api/
+COPY models/ /app/models/
+COPY data/processed/ /app/data/processed/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

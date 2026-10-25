@@ -1,1 +1,3 @@
-# Test suite package for VerityCheck
+"""
+VerityCheck Test Suite
+"""
